@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Estate Forecaster - Executive Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --orange-500: #ea580c; 
+            --amber-400: #f97316;
+            --gray-900: #111827;
+            --gray-800: #1f2937;
+            --gray-700: #374151;
+            --gray-600: #4b5563;
+            --gray-200: #e5e7eb;
+            --green-500: #22c55e;
+            --yellow-500: #eab308;
+            --red-500: #ef4444;
+            --blue-500: #3b82f6;
+        }
+
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background-color: #000000; color: var(--gray-200); }
+
+        #particle-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+
+        .card {
+            border-radius: 1.5rem;
+            padding: 3rem;
+            border: 1px solid var(--gray-800);
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            background-color: #ffffff;
+            color: var(--gray-800);
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 40px rgba(234, 88, 12, 0.4), 0 10px 20px -5px rgb(0 0 0 / 0.1);
+        }
+
+        .btn {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0, 0.1);
+            border-radius: 0.75rem;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 7px 25px rgba(0,0,0, 0.15); }
+        .btn-predict { background: linear-gradient(90deg, var(--orange-500), var(--amber-400)); color: white; width: 100%; font-size: 1.125rem; padding-top: 1rem; padding-bottom: 1rem; }
+        .btn-secondary { background-color: var(--gray-200); color: var(--gray-700); }
+        
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeInUp { animation: fadeInUp 0.6s ease-out forwards; }
+        .form-element { opacity: 0; }
+        #results-section { transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
+
+        .spinner { border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid white; border-radius: 50%; width: 1rem; height: 1rem; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .tab { cursor: pointer; padding: 0.5rem 1rem; border-bottom: 2px solid transparent; transition: all 0.3s; font-weight: 600; }
+        .tab.active { color: var(--orange-500); border-bottom-color: var(--orange-500); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .slider-group { position: relative; }
+        input[type="range"] {
+            -webkit-appearance: none;
+            background: transparent;
+            cursor: pointer;
+            width: 100%;
+        }
+        input[type="range"]::-webkit-slider-runnable-track { background-color: var(--gray-200); height: 0.5rem; border-radius: 0.5rem; }
+        input[type="range"]::-moz-range-track { background-color: var(--gray-200); height: 0.5rem; border-radius: 0.5rem; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            margin-top: -0.375rem; width: 1.25rem; height: 1.25rem;
+            background-color: var(--gray-800); border-radius: 50%;
+            border: 3px solid var(--orange-500); transition: transform 0.2s ease;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 1.25rem; height: 1.25rem;
+            background-color: var(--gray-800); border-radius: 50%;
+            border: 3px solid var(--orange-500);
+        }
+        
+        .gauge-arc { transition: stroke-dashoffset 1.5s cubic-bezier(0.25, 1, 0.5, 1); }
+
+        .title-highlight {
+            transition: text-shadow 0.3s ease-out;
+        }
+        .title-highlight:hover {
+            text-shadow: 0 0 15px var(--amber-400);
+        }
+    </style>
+</head>
+<body class="py-12 px-4">
+    <canvas id="particle-canvas"></canvas>
+
+    <div class="w-full max-w-screen-xl mx-auto space-y-12">
+        <!-- Header -->
+        <header class="text-center form-element animate-fadeInUp">
+            <h1 class="text-6xl font-extrabold text-gray-100 leading-tight">
+                <span class="bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-amber-400 title-highlight">
+                    Real Estate Forecaster
+                </span>
+            </h1>
+            <p class="text-xl text-slate-400 mt-4">The definitive tool for data-driven property analysis.</p>
+        </header>
+
+        <!-- Prediction Engine Card -->
+        <main id="prediction-engine" class="card form-element animate-fadeInUp" style="animation-delay: 0.1s;">
+            <form id="prediction-form" class="space-y-8">
+                <h2 class="text-3xl font-bold text-slate-800 border-b border-gray-200 pb-4">Property Features</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="slider-group">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="sqft_living" class="block font-medium text-slate-700">Living Area (sqft)</label>
+                            <span data-value-for="sqft_living" class="font-bold text-lg text-orange-500">2080</span>
+                        </div>
+                        <input type="range" id="sqft_living" name="sqft_living" min="500" max="8000" value="2080" step="10">
+                    </div>
+                     <div class="slider-group">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="grade" class="block font-medium text-slate-700">Grade (1-13)</label>
+                            <span data-value-for="grade" class="font-bold text-lg text-orange-500">7</span>
+                        </div>
+                        <input type="range" id="grade" name="grade" min="1" max="13" value="7">
+                    </div>
+                    <div class="slider-group">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="bedrooms" class="block font-medium text-slate-700">Bedrooms</label>
+                            <span data-value-for="bedrooms" class="font-bold text-lg text-orange-500">3</span>
+                        </div>
+                        <input type="range" id="bedrooms" name="bedrooms" min="1" max="10" value="3">
+                    </div>
+                     <div class="slider-group">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="bathrooms" class="block font-medium text-slate-700">Bathrooms</label>
+                            <span data-value-for="bathrooms" class="font-bold text-lg text-orange-500">2.25</span>
+                        </div>
+                        <input type="range" id="bathrooms" name="bathrooms" min="1" max="8" step="0.25" value="2.25">
+                    </div>
+                     <div class="slider-group">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="yr_built" class="block font-medium text-slate-700">Year Built</label>
+                            <span data-value-for="yr_built" class="font-bold text-lg text-orange-500">1971</span>
+                        </div>
+                        <input type="range" id="yr_built" name="yr_built" min="1900" max="2015" value="1971">
+                    </div>
+                    <div class="slider-group">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="condition" class="block font-medium text-slate-700">Condition</label>
+                            <span data-value-for="condition" class="font-bold text-lg text-orange-500">Average</span>
+                        </div>
+                        <input type="range" id="condition" name="condition" min="1" max="5" value="3">
+                    </div>
+                    <div class="slider-group">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="view" class="block font-medium text-slate-700">View</label>
+                            <span data-value-for="view" class="font-bold text-lg text-orange-500">None</span>
+                        </div>
+                        <input type="range" id="view" name="view" min="0" max="4" value="0">
+                    </div>
+                    <div class="slider-group">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="waterfront" class="block font-medium text-slate-700">Waterfront</label>
+                            <span data-value-for="waterfront" class="font-bold text-lg text-orange-500">No</span>
+                        </div>
+                        <input type="range" id="waterfront" name="waterfront" min="0" max="1" value="0">
+                    </div>
+                     <div>
+                        <label for="zipcode" class="block text-sm font-medium text-slate-700 mb-1">Region (Zipcode)</label>
+                        <select id="zipcode" name="zipcode" class="mt-1 block w-full rounded-md bg-gray-100 border-gray-300 text-gray-900 shadow-sm focus:border-orange-500 focus:ring-orange-500 font-semibold p-3">
+                            <option value="98103">Seattle</option>
+                            <option value="98004">Bellevue</option>
+                            <option value="98052">Redmond</option>
+                            <option value="98033">Kirkland</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" id="predict-button" class="btn btn-predict text-lg mt-4">
+                    <span id="button-text">Analyze & Predict</span>
+                    <div id="button-spinner" class="spinner" style="display: none;"></div>
+                </button>
+            </form>
+        </main>
+        
+        <!-- Results Section (Initially Hidden) -->
+        <section id="results-section" class="card invisible opacity-0 transform -translate-y-8">
+             <div class="flex justify-between items-center border-b border-gray-200 pb-4">
+                <h2 class="text-4xl font-bold text-slate-800">Analysis Report</h2>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                 <div class="space-y-6 text-center">
+                    <h3 class="text-xl font-bold text-slate-800">Model Prediction</h3>
+                    <div id="classification-gauge" class="relative mx-auto" style="width: 300px; height: 300px;"></div>
+                </div>
+                <div class="space-y-4">
+                    <div id="price-display-container" class="text-center">
+                        <p class="text-sm font-medium text-slate-500 uppercase tracking-widest">Estimated Value</p>
+                        <h3 id="prediction-text" class="text-6xl font-black"></h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg mt-4">
+                        <canvas id="price-chart" height="240"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prediction Breakdown -->
+            <div class="pt-8 mt-12 border-t border-gray-200">
+                <h3 class="text-2xl font-bold text-slate-800 mb-4">Prediction Breakdown</h3>
+                <p class="text-slate-600 mb-4">This shows the biggest factors influencing the estimated price, based on a simplified model.</p>
+                <div id="breakdown-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Breakdown items will be injected here -->
+                </div>
+            </div>
+
+            <!-- EDA Suite -->
+            <div class="pt-8 mt-16 border-t border-gray-200">
+                <h3 class="text-2xl font-bold text-slate-800 mb-4">Exploratory Data Analysis Suite</h3>
+                <div class="border-b border-gray-200">
+                    <nav id="eda-tabs" class="flex flex-wrap -mb-px" aria-label="Tabs">
+                        <button class="tab active" data-target="grade-chart-container">By Grade</button>
+                        <button class="tab" data-target="bedrooms-chart-container">By Bedrooms</button>
+                        <button class="tab" data-target="floors-chart-container">By Floors</button>
+                        <button class="tab" data-target="condition-chart-container">By Condition</button>
+                        <button class="tab" data-target="sqft-chart-container">vs. Living Area</button>
+                    </nav>
+                </div>
+                <div class="py-4">
+                    <div id="grade-chart-container" class="tab-content active"><canvas id="grade-chart"></canvas></div>
+                    <div id="bedrooms-chart-container" class="tab-content"><canvas id="bedrooms-chart"></canvas></div>
+                    <div id="floors-chart-container" class="tab-content" style="max-height: 300px; margin: auto;"><canvas id="floors-chart"></canvas></div>
+                    <div id="condition-chart-container" class="tab-content"><canvas id="condition-chart"></canvas></div>
+                    <div id="sqft-chart-container" class="tab-content"><canvas id="sqft-chart"></canvas></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // --- FINAL EDITION SCRIPT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            let chartInstances = {};
+
+            const DATA_FROM_NOTEBOOK = {
+                logisticModel: {
+                    intercept: -0.0001088,
+                    coeffs: { 'bedrooms': 0.1764, 'bathrooms': 0.0911, 'sqft_living': 0.0003, 'sqft_lot': -0.0000003, 'floors': -0.0152, 'waterfront': 0.0, 'view': 0.1235, 'condition': 0.1384, 'grade': 1.0567, 'sqft_above': 0.0001, 'sqft_basement': 0.0003, 'yr_built': -0.0135, 'yr_renovated': 0.0001, 'zipcode': -0.0003, 'lat': 0.5841, 'long': -0.1654, 'sqft_living15': 0.0004, 'sqft_lot15': -0.0000006 }
+                },
+                defaultFeatures: { 'sqft_lot': 7618, 'floors': 1.5, 'sqft_above': 1560, 'sqft_basement': 0, 'yr_renovated': 0, 'lat': 47.5718, 'long': -122.230, 'sqft_living15': 1840, 'sqft_lot15': 7620 },
+                edaData: {
+                    gradeAvgPrice: { labels: ['3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'], data: [205400, 214422, 248524, 301919, 402591, 542852, 773665, 1060375, 1496352, 2197154, 3134375] },
+                    bedroomsAvgPrice: { labels: ['1', '2', '3', '4', '5', '6+'], data: [317134, 401372, 466232, 635419, 786599, 825520] },
+                    floorsDistribution: { labels: ['1 Floor', '1.5 Floors', '2 Floors', '2.5 Floors', '3+ Floors'], data: [10680, 1910, 8241, 161, 613] },
+                    priceByCondition: { labels: ['1 (Poor)', '2 (Fair)', '3 (Average)', '4 (Good)', '5 (Very Good)'], data: [334431, 327287, 542012, 521200, 612434] },
+                    priceVsSqftSample: [ {x: 1180, y: 221900}, {x: 2570, y: 538000}, {x: 770, y: 180000}, {x: 1960, y: 604000}, {x: 1680, y: 510000}, {x: 4820, y: 1225000}, {x: 1470, y: 257500}, {x: 1430, y: 291850}, {x: 790, y: 229500}, {x: 1520, y: 323000}, {x: 1010, y: 662500}, {x: 1690, y: 468000}, {x: 1715, y: 310000}, {x: 2310, y: 400000}, {x: 1320, y: 530000}, {x: 2950, y: 650000}, {x: 1200, y: 395000}, {x: 1610, y: 485000}, {x: 840, y: 189000}, {x: 1600, y: 230000}, {x: 1200, y: 385000}, {x: 2320, y: 2000000}, {x: 1090, y: 510000}, {x: 2520, y: 450000}, {x: 1150, y: 357000}, {x: 2753, y: 719000}, {x: 1780, y: 640000}, {x: 1220, y: 360000}, {x: 2210, y: 435000}, {x: 2050, y: 700000}, {x: 1190, y: 580500}, {x: 2450, y: 800000}, {x: 750, y: 235000}, {x: 1600, y: 450000}, {x: 1530, y: 600000}, {x: 950, y: 440000}, {x: 1310, y: 350000}, {x: 1330, y: 330000}, {x: 1480, y: 815000}, {x: 2150, y: 340000}, {x: 1990, y: 475000}, {x: 1930, y: 722500}, {x: 1160, y: 205000}, {x: 1430, y: 490000}, {x: 1890, y: 285000}, {x: 880, y: 245000}, {x: 1620, y: 250000}, {x: 2030, y: 325000}, {x: 1200, y: 430000}, {x: 1250, y: 280000} ]
+                },
+                 regionAverages: { '98103': 600000, '98004': 1350000, '98052': 720000, '98033': 800000 }
+            };
+
+            const conditionMap = { 1: 'Poor', 2: 'Fair', 3: 'Average', 4: 'Good', 5: 'Very Good' };
+            const viewMap = { 0: 'None', 1: 'Fair', 2: 'Average', 3: 'Good', 4: 'Excellent' };
+
+            document.querySelectorAll('input[type="range"]').forEach(slider => {
+                const valueSpan = document.querySelector(`[data-value-for="${slider.id}"]`);
+                slider.addEventListener('input', () => {
+                    if (slider.id === 'waterfront') { valueSpan.textContent = slider.value == 1 ? 'Yes' : 'No'; } 
+                    else if (slider.id === 'condition') { valueSpan.textContent = conditionMap[slider.value]; }
+                    else if (slider.id === 'view') { valueSpan.textContent = viewMap[slider.value]; }
+                    else { valueSpan.textContent = slider.value; }
+                });
+            });
+
+            function getPrediction(features) {
+                const model = DATA_FROM_NOTEBOOK.logisticModel;
+                let log_odds = model.intercept;
+                for (const feature in model.coeffs) { log_odds += model.coeffs[feature] * features[feature]; }
+                const probability = 1 / (1 + Math.exp(-log_odds));
+                
+                const { estimatedPrice, breakdown } = estimatePrice(features);
+                const regionAverage = DATA_FROM_NOTEBOOK.regionAverages[features.zipcode];
+                
+                let riskCategory = 'Low';
+                if (probability >= 0.7) { riskCategory = 'High'; }
+                else if (probability >= 0.4) { riskCategory = 'Medium'; }
+
+                return { 
+                    classification: probability >= 0.5 ? 'Expensive' : 'Not Expensive', 
+                    riskCategory: riskCategory,
+                    probability: probability,
+                    estimatedPrice: estimatedPrice,
+                    regionAverage: regionAverage,
+                    breakdown: breakdown
+                };
+            }
+
+            function estimatePrice(features) {
+                const basePricePerSqft = 250;
+                const basePrice = basePricePerSqft * features.sqft_living;
+                const gradeBonus = (features.grade - 7) * 50000;
+                const waterfrontBonus = features.waterfront ? 750000 : 0;
+                const yrBuiltBonus = Math.max(0, (features.yr_built - 1970)) * 500;
+                const viewBonus = features.view * 30000;
+                const conditionBonus = (features.condition - 3) * 25000;
+
+                const zipcodeMultipliers = { '98103': 1.0, '98004': 1.6, '98052': 1.3, '98033': 1.2 };
+                const multiplier = zipcodeMultipliers[features.zipcode] || 1.0;
+                
+                const estimatedPrice = (basePrice + gradeBonus + waterfrontBonus + yrBuiltBonus + viewBonus + conditionBonus) * multiplier;
+                
+                const breakdown = {
+                    "Base Price (from Sqft)": basePrice,
+                    "Grade Adjustment": gradeBonus,
+                    "Waterfront Premium": waterfrontBonus,
+                    "Age Adjustment (from 1970)": yrBuiltBonus,
+                    "View Premium": viewBonus,
+                    "Condition Adjustment": conditionBonus,
+                    "Region Multiplier": `x${multiplier.toFixed(1)}`
+                };
+                
+                return { estimatedPrice, breakdown };
+            }
+            
+            function updateAndShowReport(features, prediction) {
+                const resultsSection = document.getElementById('results-section');
+                
+                // Update Price Text
+                const predictionText = document.getElementById('prediction-text');
+                const riskColors = { 'High': 'var(--red-500)', 'Medium': 'var(--orange-500)', 'Low': 'var(--green-500)' };
+                predictionText.style.color = riskColors[prediction.riskCategory];
+                const formattedPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(prediction.estimatedPrice);
+                predictionText.textContent = formattedPrice;
+
+                renderComparisonChart(prediction);
+                renderEdaCharts();
+                renderBreakdown(prediction.breakdown);
+                renderClassificationGauge(prediction);
+                
+                resultsSection.classList.remove('invisible', 'opacity-0', '-translate-y-8');
+                setTimeout(() => resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+            }
+
+            function renderClassificationGauge(prediction) {
+                const container = document.getElementById('classification-gauge');
+                const size = 300, strokeWidth = 25, radius = (size / 2) - (strokeWidth * 2);
+                const circumference = 2 * Math.PI * radius;
+                const riskColors = { 'High': 'var(--red-500)', 'Medium': 'var(--orange-500)', 'Low': 'var(--green-500)' };
+                const color = riskColors[prediction.riskCategory];
+                
+                container.innerHTML = `<svg height="${size}" width="${size}" class="transform -rotate-90"><circle cx="${size/2}" cy="${size/2}" r="${radius}" stroke="#e5e7eb" stroke-width="${strokeWidth}" fill="transparent" /><circle class="gauge-arc" cx="${size/2}" cy="${size/2}" r="${radius}" stroke="${color}" stroke-width="${strokeWidth}" fill="transparent" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference}" stroke-linecap="round" /></svg><div class="absolute inset-0 flex flex-col items-center justify-center"><span id="gauge-percent-text" class="text-7xl font-bold" style="color:${color};">0%</span><span id="gauge-label-text" class="text-lg text-slate-500 font-semibold mt-2"></span></div>`;
+                
+                const arc = container.querySelector('.gauge-arc');
+                const percentText = document.getElementById('gauge-percent-text');
+                const labelText = document.getElementById('gauge-label-text');
+                
+                const finalPercent = prediction.probability * 100;
+                const finalOffset = circumference - prediction.probability * circumference;
+
+                let start = null;
+                const animationDuration = 1500;
+                function animate(timestamp) {
+                    if (!start) start = timestamp;
+                    const progress = timestamp - start;
+                    const percentage = Math.min(progress / animationDuration, 1);
+                    
+                    percentText.textContent = `${Math.floor(percentage * finalPercent)}%`;
+                    arc.style.strokeDashoffset = circumference - (percentage * (circumference - finalOffset));
+
+                    if (progress < animationDuration) {
+                        requestAnimationFrame(animate);
+                    } else {
+                         const riskTextMap = { 'High': 'High', 'Medium': 'Mid', 'Low': 'Low' };
+                         const riskText = riskTextMap[prediction.riskCategory];
+                         const fontSize = riskText.length <= 3 ? 'text-8xl' : 'text-7xl';
+                         percentText.className = `${fontSize} font-black`;
+                         percentText.textContent = riskText;
+                         labelText.textContent = ``;
+                    }
+                }
+                requestAnimationFrame(animate);
+            }
+
+            function renderBreakdown(breakdown) {
+                const container = document.getElementById('breakdown-container');
+                container.innerHTML = '';
+                Object.entries(breakdown).forEach(([key, value]) => {
+                    if (value === 0) return;
+                    let valueStr = typeof value === 'string' ? value : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits:0, signDisplay: 'exceptZero' }).format(value);
+                    let colorClass = typeof value === 'string' ? 'text-blue-500' : (value > 0 ? 'text-green-600' : 'text-red-600');
+                    const item = document.createElement('div');
+                    item.className = 'flex justify-between items-center bg-gray-100 p-3 rounded-lg';
+                    item.innerHTML = `<span class="text-sm font-medium text-slate-700">${key}</span><span class="text-sm font-bold ${colorClass}">${valueStr}</span>`;
+                    container.appendChild(item);
+                });
+            }
+
+            function renderComparisonChart(prediction) {
+                if (chartInstances.price) chartInstances.price.destroy();
+                const ctx = document.getElementById('price-chart').getContext('2d');
+                const riskColors = { 'High': 'var(--red-500)', 'Medium': 'var(--orange-500)', 'Low': 'var(--green-500)'};
+                chartInstances.price = new Chart(ctx, { type: 'bar', data: { labels: ['Your Property (Est.)', 'Region Average'], datasets: [{ data: [prediction.estimatedPrice, prediction.regionAverage], backgroundColor: [riskColors[prediction.riskCategory], '#cbd5e1'], borderRadius: 8, borderWidth: 0 }] }, options: chartOptions('Price Comparison', value => '$' + (value / 1000) + 'k') });
+            }
+
+            function renderEdaCharts() {
+                const orangeGradient = document.getElementById('grade-chart').getContext('2d').createLinearGradient(0, 0, 0, 400);
+                orangeGradient.addColorStop(0, 'rgba(234, 88, 12, 0.6)'); orangeGradient.addColorStop(1, 'rgba(249, 115, 22, 0.4)');
+                if (chartInstances.grade) chartInstances.grade.destroy();
+                const gradeCtx = document.getElementById('grade-chart').getContext('2d');
+                chartInstances.grade = new Chart(gradeCtx, { type: 'line', data: { labels: DATA_FROM_NOTEBOOK.edaData.gradeAvgPrice.labels, datasets: [{ data: DATA_FROM_NOTEBOOK.edaData.gradeAvgPrice.data, borderColor: 'var(--orange-500)', backgroundColor: orangeGradient, tension: 0.1, fill: true }] }, options: chartOptions('Avg. Price by Grade', value => '$' + (value / 1000) + 'k') });
+                if (chartInstances.bedrooms) chartInstances.bedrooms.destroy();
+                const bedroomsCtx = document.getElementById('bedrooms-chart').getContext('2d');
+                chartInstances.bedrooms = new Chart(bedroomsCtx, { type: 'bar', data: { labels: DATA_FROM_NOTEBOOK.edaData.bedroomsAvgPrice.labels, datasets: [{ data: DATA_FROM_NOTEBOOK.edaData.bedroomsAvgPrice.data, backgroundColor: orangeGradient, borderRadius: 4 }] }, options: chartOptions('Avg. Price by Bedrooms', value => '$' + (value / 1000) + 'k') });
+                if (chartInstances.floors) chartInstances.floors.destroy();
+                const floorsCtx = document.getElementById('floors-chart').getContext('2d');
+                chartInstances.floors = new Chart(floorsCtx, { type: 'pie', data: { labels: DATA_FROM_NOTEBOOK.edaData.floorsDistribution.labels, datasets: [{ data: DATA_FROM_NOTEBOOK.edaData.floorsDistribution.data, backgroundColor: ['#c2410c', '#ea580c', '#f97316', '#fb923c', '#fdba74']}] }, options: {...chartOptions('Floors Distribution'), plugins: { legend: { display: true, position: 'bottom' } } } });
+                if (chartInstances.condition) chartInstances.condition.destroy();
+                const conditionCtx = document.getElementById('condition-chart').getContext('2d');
+                chartInstances.condition = new Chart(conditionCtx, { type: 'bar', data: { labels: DATA_FROM_NOTEBOOK.edaData.priceByCondition.labels, datasets: [{ data: DATA_FROM_NOTEBOOK.edaData.priceByCondition.data, backgroundColor: orangeGradient, borderRadius: 4 }] }, options: chartOptions('Avg. Price by Condition', value => '$' + (value / 1000) + 'k') });
+                if (chartInstances.sqft) chartInstances.sqft.destroy();
+                const sqftCtx = document.getElementById('sqft-chart').getContext('2d');
+                chartInstances.sqft = new Chart(sqftCtx, { type: 'scatter', data: { datasets: [{ data: DATA_FROM_NOTEBOOK.edaData.priceVsSqftSample, backgroundColor: 'rgba(234, 88, 12, 0.6)' }] }, options: chartOptions('Price vs. Living Area (Sampled)', value => '$' + (value / 1000) + 'k') });
+            }
+
+            function chartOptions(title, yCallback) {
+                return { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: title, color: 'var(--gray-800)', font: { size: 16 } } }, scales: { y: { beginAtZero: true, ticks: { color: 'var(--gray-600)', callback: yCallback }, grid: { color: 'var(--gray-200)' } }, x: { ticks: { color: 'var(--gray-700)', font: { weight: 'bold' } }, grid: { display: false } } } };
+            }
+
+            const form = document.getElementById('prediction-form');
+            const predictButton = document.getElementById('predict-button');
+            const buttonText = document.getElementById('button-text');
+            const buttonSpinner = document.getElementById('button-spinner');
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                buttonText.textContent = 'Analyzing...';
+                buttonSpinner.style.display = 'block';
+                predictButton.disabled = true;
+
+                setTimeout(() => {
+                    const formData = new FormData(e.target);
+                    let features = { ...DATA_FROM_NOTEBOOK.defaultFeatures };
+                    formData.forEach((value, key) => { features[key] = parseFloat(value) || 0; });
+                    const prediction = getPrediction(features);
+                    updateAndShowReport(features, prediction);
+                    buttonText.textContent = 'Analyze & Predict';
+                    buttonSpinner.style.display = 'none';
+                    predictButton.disabled = false;
+                }, 50);
+            });
+
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.addEventListener('click', () => { tabs.forEach(t => t.classList.remove('active')); tab.classList.add('active'); tabContents.forEach(c => c.classList.remove('active')); document.getElementById(tab.dataset.target).classList.add('active'); }));
+       
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            let particles = [];
+            function createParticle() { particles.push({ x: Math.random() * canvas.width, y: canvas.height + 10, size: Math.random() * 2 + 0.5, speedY: Math.random() * 1 + 0.5, color: `rgba(234, 88, 12, ${Math.random() * 0.3})` }); }
+            function animateParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for(let i = 0; i < particles.length; i++) {
+                    let p = particles[i];
+                    p.y -= p.speedY;
+                    if(p.y < 0) { particles.splice(i, 1); i--; }
+                    else { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); }
+                }
+                if(particles.length < 100 && Math.random() > 0.9) createParticle();
+                requestAnimationFrame(animateParticles);
+            }
+            animateParticles();
+            window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+        });
+    </script>
+</body>
+</html>
+
